@@ -1,10 +1,10 @@
 {
-    "model": "o4-mini",
+    "model": "openai/o4-mini",
     "max_tokens": 4000,
     "temperature": 0.3,
     "top_p": 0.9,
     "frequency_penalty": 0.1,
     "presence_penalty": 0.1,
     "docs_folder": "nersc-docs/docs",
-    "search_context_lines": 8
+    "search_context_lines": 15
 }

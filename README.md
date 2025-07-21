@@ -125,3 +125,9 @@ Potential improvements for production use:
 - Search result ranking and relevance scoring
 - Advanced query syntax (phrases, boolean operators)
 - Search history and result caching
+
+## TODO
+
+* simplify the hell out of this readme
+* format output in markdown
+* add debug mode to see the thinking, research results, etc.

@@ -40,7 +40,7 @@ def search_docs(keywords, docs_folder, context_lines=3):
                 current_matches = []
                 
                 for line in lines:
-                    if '--' in line and not line.startswith(docs_folder):
+                    if line == '--':
                         if current_file and current_matches:
                             results.append({
                                 'keyword': keyword,
@@ -51,9 +51,17 @@ def search_docs(keywords, docs_folder, context_lines=3):
                         current_matches = []
                         continue
                     
-                    if ':' in line:
-                        parts = line.split(':', 2)
-                        if len(parts) >= 2:
+                    # Handle both matching lines (with :) and context lines (with -)
+                    if ':' in line or '-' in line:
+                        # Try splitting on : first (matching lines), then - (context lines)
+                        if ':' in line and line.count(':') >= 2:
+                            parts = line.split(':', 2)
+                        elif '-' in line and line.count('-') >= 2:
+                            parts = line.split('-', 2)
+                        else:
+                            continue
+                            
+                        if len(parts) >= 3:
                             file_path = parts[0]
                             if file_path != current_file:
                                 if current_file and current_matches:
@@ -65,8 +73,7 @@ def search_docs(keywords, docs_folder, context_lines=3):
                                 current_file = file_path
                                 current_matches = []
                             
-                            if len(parts) >= 3:
-                                current_matches.append(parts[2])
+                            current_matches.append(parts[2])
                 
                 if current_file and current_matches:
                     results.append({
@@ -111,6 +118,12 @@ def format_search_results(results, for_llm=False):
         
         return '\n'.join(formatted)
 
+def search_docs_tool(keywords_str, docs_folder, context_lines=3):
+    """Tool function for OpenAI function calling"""
+    keywords = [kw.strip() for kw in keywords_str.split(',')]
+    search_results = search_docs(keywords, docs_folder, context_lines)
+    return format_search_results(search_results, for_llm=True)
+
 def main():
     load_dotenv()
     
@@ -129,11 +142,29 @@ def main():
     system_prompt = load_system_prompt()
     params = load_parameters()
     
-    # Track conversation context for LLM tool usage detection
+    # Define the search tool for function calling
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "search_docs",
+            "description": "Search through NERSC documentation for relevant information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "string",
+                        "description": "Comma-separated keywords to search for"
+                    }
+                },
+                "required": ["keywords"]
+            }
+        }
+    }]
+    
     conversation_history = []
     
     print("Chatbot initialized. Type 'quit' to exit.")
-    print("Use '/search keyword1, keyword2, ...' to search docs")
+    print("Use '/search keyword1, keyword2, ...' to search docs manually")
     print("-" * 40)
     
     while True:
@@ -146,6 +177,7 @@ def main():
         if not user_input:
             continue
         
+        # Manual search command for users
         if user_input.lower().startswith('/search '):
             search_query = user_input[8:].strip()
             if search_query:
@@ -153,7 +185,7 @@ def main():
                 docs_folder = params.get('docs_folder', 'docs')
                 context_lines = params.get('search_context_lines', 3)
                 
-                print(f"\n🔍 Searching for: {', '.join(keywords)}")
+                print(f"\n🔍 **[Manual Search: {', '.join(keywords)}]**")
                 search_results = search_docs(keywords, docs_folder, context_lines)
                 formatted_results = format_search_results(search_results, for_llm=False)
                 print(f"\n{formatted_results}")
@@ -162,16 +194,20 @@ def main():
             continue
         
         try:
-            # Add user message to conversation history
             conversation_history.append({"role": "user", "content": user_input})
             
-            # Build messages with conversation history (keep last 10 for context)
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(conversation_history[-10:])
             
+            # Track if any tools were called
+            tools_used = []
+            
+            # First API call with tools
             response = client.chat.completions.create(
                 model=params['model'],
                 messages=messages,
+                tools=tools,
+                tool_choice="auto",
                 max_tokens=params['max_tokens'],
                 temperature=params['temperature'],
                 top_p=params['top_p'],
@@ -179,32 +215,65 @@ def main():
                 presence_penalty=params['presence_penalty']
             )
             
-            assistant_response = response.choices[0].message.content
+            assistant_message = response.choices[0].message
             
-            # Check if LLM is trying to use search tool
-            if '/search ' in assistant_response.lower():
-                # Extract search commands from LLM response
-                import re
-                search_matches = re.findall(r'/search\s+([^\n]+)', assistant_response, re.IGNORECASE)
+            # Handle tool calls if any
+            if assistant_message.tool_calls:
+                # Add assistant message with tool calls to conversation
+                conversation_history.append({
+                    "role": "assistant",
+                    "content": assistant_message.content,
+                    "tool_calls": [tc.model_dump() for tc in assistant_message.tool_calls]
+                })
                 
-                for search_query in search_matches:
-                    keywords = [kw.strip() for kw in search_query.split(',')]
-                    docs_folder = params.get('docs_folder', 'docs')
-                    context_lines = params.get('search_context_lines', 3)
-                    
-                    # Concise input display for LLM usage
-                    print(f"\n[LLM Search: {', '.join(keywords)}]")
-                    
-                    search_results = search_docs(keywords, docs_folder, context_lines)
-                    formatted_results = format_search_results(search_results, for_llm=True)
-                    
-                    # Replace search command in response with results
-                    search_pattern = f'/search\s+{re.escape(search_query)}'
-                    assistant_response = re.sub(search_pattern, formatted_results, assistant_response, flags=re.IGNORECASE)
+                # Execute tool calls
+                for tool_call in assistant_message.tool_calls:
+                    if tool_call.function.name == "search_docs":
+                        keywords = json.loads(tool_call.function.arguments)["keywords"]
+                        tools_used.append(keywords)
+                        
+                        docs_folder = params.get('docs_folder', 'docs')
+                        context_lines = params.get('search_context_lines', 3)
+                        
+                        result = search_docs_tool(keywords, docs_folder, context_lines)
+                        
+                        # Add tool result to conversation
+                        conversation_history.append({
+                            "role": "tool",
+                            "content": result,
+                            "tool_call_id": tool_call.id
+                        })
+                
+                # Single API call with tool results - let model decide on further tool calls
+                messages = [{"role": "system", "content": system_prompt}]
+                messages.extend(conversation_history[-10:])
+                
+                final_response = client.chat.completions.create(
+                    model=params['model'],
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    max_tokens=params['max_tokens'],
+                    temperature=params['temperature'],
+                    top_p=params['top_p'],
+                    frequency_penalty=params['frequency_penalty'],
+                    presence_penalty=params['presence_penalty']
+                )
+                
+                assistant_response = final_response.choices[0].message.content
+            else:
+                assistant_response = assistant_message.content
             
-            print(f"\nBot: {assistant_response}")
+            # Show search status automatically  
+            if tools_used:
+                search_status = f"**[Searched: {', '.join(tools_used)}]**"
+                print(f"\n{search_status}")
+            else:
+                print(f"\n**[No Search]**")
             
-            # Add assistant response to conversation history
+            print(f"Bot: {assistant_response}")
+            
+            # Add final assistant response to conversation history
             conversation_history.append({"role": "assistant", "content": assistant_response})
             
         except Exception as e:
