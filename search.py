@@ -122,11 +122,114 @@ def format_search_results(results, for_llm=False):
         
         return '\n'.join(formatted)
 
+def generate_alternative_keywords(original_keywords):
+    """Generate alternative keywords for retry searches"""
+    alternatives = {
+        # Job/scheduling related
+        'job submission': ['submit', 'batch', 'queue', 'scheduler', 'slurm'],
+        'job': ['submit', 'batch', 'queue', 'sbatch', 'squeue'],
+        'queue': ['submit', 'batch', 'scheduler', 'slurm', 'partition'],
+        'scheduler': ['slurm', 'batch', 'queue', 'submit'],
+        
+        # Storage related
+        'storage': ['filesystem', 'disk', 'files', 'scratch', 'home'],
+        'filesystem': ['storage', 'disk', 'files', 'scratch', 'lustre'],
+        'data': ['files', 'storage', 'filesystem', 'scratch'],
+        
+        # Systems related
+        'available supercomputers': ['systems', 'machines', 'clusters', 'hardware', 'compute'],
+        'supercomputers': ['systems', 'machines', 'clusters', 'perlmutter', 'cori'],
+        'systems': ['machines', 'clusters', 'hardware', 'compute', 'nodes'],
+        'hardware': ['systems', 'machines', 'compute', 'nodes', 'cpu', 'gpu'],
+        
+        # Software related
+        'software packages': ['software', 'modules', 'applications', 'programs'],
+        'modules': ['software', 'applications', 'load', 'environment'],
+        'applications': ['software', 'programs', 'modules'],
+        
+        # Performance related
+        'performance optimization': ['performance', 'optimize', 'tuning', 'parallel'],
+        'optimization': ['optimize', 'performance', 'tuning', 'efficiency'],
+        
+        # General computing terms
+        'parallel': ['mpi', 'openmp', 'gpu', 'threading'],
+        'compile': ['build', 'make', 'compiler', 'gcc'],
+        'install': ['setup', 'configure', 'build', 'compile'],
+    }
+    
+    # Generate alternatives for each original keyword
+    all_alternatives = []
+    for keyword in original_keywords:
+        keyword_lower = keyword.lower().strip()
+        
+        # Check for exact matches first
+        if keyword_lower in alternatives:
+            all_alternatives.extend(alternatives[keyword_lower])
+        else:
+            # Check for partial matches
+            for key, alts in alternatives.items():
+                if keyword_lower in key or key in keyword_lower:
+                    all_alternatives.extend(alts)
+        
+        # Add some generic fallbacks based on keyword characteristics
+        if len(keyword_lower) > 6:  # Long technical terms
+            # Try shorter, simpler versions
+            if 'system' in keyword_lower:
+                all_alternatives.extend(['systems', 'machine', 'compute'])
+            if 'submit' in keyword_lower or 'job' in keyword_lower:
+                all_alternatives.extend(['batch', 'slurm', 'queue'])
+            if 'file' in keyword_lower or 'data' in keyword_lower:
+                all_alternatives.extend(['storage', 'disk', 'scratch'])
+    
+    # Remove duplicates and original keywords
+    alternatives_set = set(all_alternatives) - set(original_keywords)
+    return list(alternatives_set)
+
 def search_docs_tool(keywords_str, docs_folder, context_lines=3):
-    """Tool function for OpenAI function calling"""
-    keywords = [kw.strip() for kw in keywords_str.split(',')]
-    search_results = search_docs(keywords, docs_folder, context_lines)
-    return format_search_results(search_results, for_llm=True)
+    """Tool function for OpenAI function calling with automatic retry logic"""
+    # Parse keywords - split on comma only, preserving phrases
+    original_keywords = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
+    
+    # First attempt with original keywords
+    search_results = search_docs(original_keywords, docs_folder, context_lines)
+    
+    # Check if we got meaningful results (content > 50 chars and no errors)
+    meaningful_results = [r for r in search_results if 'error' not in r and len(r.get('content', '')) > 50]
+    
+    # Track what we searched for debugging
+    search_attempts = [f"Original: {', '.join(original_keywords)}"]
+    
+    # If we have fewer than 2 meaningful results, try alternatives
+    if len(meaningful_results) < 2:
+        alternative_keywords = generate_alternative_keywords(original_keywords)
+        
+        if alternative_keywords:
+            # Try up to 3 alternative keyword sets
+            for i in range(0, min(len(alternative_keywords), 6), 2):
+                retry_keywords = alternative_keywords[i:i+2]
+                search_attempts.append(f"Retry {i//2 + 1}: {', '.join(retry_keywords)}")
+                
+                retry_results = search_docs(retry_keywords, docs_folder, context_lines)
+                
+                # Add successful results to our collection
+                for result in retry_results:
+                    if 'error' not in result and len(result.get('content', '')) > 50:
+                        search_results.append(result)
+                
+                # If we now have enough results, stop trying
+                meaningful_results = [r for r in search_results if 'error' not in r and len(r.get('content', '')) > 50]
+                if len(meaningful_results) >= 3:
+                    break
+    
+    # Format results with retry information
+    formatted_results = format_search_results(search_results, for_llm=True)
+    
+    # Add metadata about search attempts for transparency
+    if len(search_attempts) > 1:
+        retry_info = f"\n[Search attempts: {' | '.join(search_attempts)}]"
+        formatted_results = formatted_results + retry_info
+    
+    return formatted_results
 
 def main():
     # Parse command line arguments
@@ -163,7 +266,7 @@ def main():
                 "properties": {
                     "keywords": {
                         "type": "string",
-                        "description": "Comma-separated keywords to search for"
+                        "description": "Keywords or phrases to search for. Use commas ONLY to separate completely different search concepts (e.g., 'slurm, storage' for two different topics). For phrases, keep words together (e.g., 'job submission' not 'job, submission'). For best results, use 1-3 targeted keywords."
                     }
                 },
                 "required": ["keywords"]
@@ -224,17 +327,23 @@ def main():
                 console.print(Panel(json.dumps(debug_messages, indent=2), title="Request Messages (last 3)", border_style="cyan"))
             
             # First API call with tools
-            response = client.chat.completions.create(
-                model=params['model'],
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=params['max_tokens'],
-                temperature=params['temperature'],
-                top_p=params['top_p'],
-                frequency_penalty=params['frequency_penalty'],
-                presence_penalty=params['presence_penalty']
-            )
+            try:
+                response = client.chat.completions.create(
+                    model=params['model'],
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    max_tokens=params['max_tokens'],
+                    temperature=params['temperature'],
+                    top_p=params['top_p'],
+                    frequency_penalty=params['frequency_penalty'],
+                    presence_penalty=params['presence_penalty']
+                )
+            except Exception as api_error:
+                console.print(f"\n❌ API Error (first call): {api_error}", style="bold red")
+                if debug_mode:
+                    console.print(f"API Error Details: {type(api_error).__name__}: {str(api_error)}", style="dim red")
+                continue
             
             assistant_message = response.choices[0].message
             
@@ -251,6 +360,10 @@ def main():
                 # This happens when there's no visible content but tools are called
                 in_thinking = assistant_message.content is None or assistant_message.content.strip() == ""
                 
+                if debug_mode:
+                    console.print(f"\n🔧 [DEBUG] Tool calls detected: {len(assistant_message.tool_calls)}", style="dim cyan")
+                    console.print(f"In thinking mode: {in_thinking}", style="dim cyan")
+                
                 # Add assistant message with tool calls to conversation
                 conversation_history.append({
                     "role": "assistant",
@@ -260,31 +373,42 @@ def main():
                 
                 # Execute tool calls
                 for tool_call in assistant_message.tool_calls:
-                    if tool_call.function.name == "search_docs":
-                        keywords = json.loads(tool_call.function.arguments)["keywords"]
-                        tool_call_info.append({
-                            'keywords': keywords,
-                            'in_thinking': in_thinking
-                        })
-                        
+                    try:
+                        if tool_call.function.name == "search_docs":
+                            keywords = json.loads(tool_call.function.arguments)["keywords"]
+                            tool_call_info.append({
+                                'keywords': keywords,
+                                'in_thinking': in_thinking
+                            })
+                            
+                            if debug_mode:
+                                console.print(f"\n🔍 [DEBUG] Tool Call Input: search_docs", style="dim yellow")
+                                console.print(Panel(f"Keywords: {keywords}", title="Tool Input", border_style="yellow"))
+                            
+                            docs_folder = params.get('docs_folder', 'docs')
+                            context_lines = params.get('search_context_lines', 3)
+                            
+                            result = search_docs_tool(keywords, docs_folder, context_lines)
+                            
+                            if debug_mode:
+                                console.print(f"\n📤 [DEBUG] Tool Call Output:", style="dim yellow")
+                                result_preview = result[:500] + "..." if len(result) > 500 else result
+                                console.print(Panel(result_preview, title="Tool Output (truncated)", border_style="yellow"))
+                            
+                            # Add tool result to conversation
+                            conversation_history.append({
+                                "role": "tool",
+                                "content": result,
+                                "tool_call_id": tool_call.id
+                            })
+                    except Exception as tool_error:
+                        console.print(f"\n❌ Tool Call Error: {tool_error}", style="bold red")
                         if debug_mode:
-                            console.print(f"\n🔍 [DEBUG] Tool Call Input: search_docs", style="dim yellow")
-                            console.print(Panel(f"Keywords: {keywords}", title="Tool Input", border_style="yellow"))
-                        
-                        docs_folder = params.get('docs_folder', 'docs')
-                        context_lines = params.get('search_context_lines', 3)
-                        
-                        result = search_docs_tool(keywords, docs_folder, context_lines)
-                        
-                        if debug_mode:
-                            console.print(f"\n📤 [DEBUG] Tool Call Output:", style="dim yellow")
-                            result_preview = result[:500] + "..." if len(result) > 500 else result
-                            console.print(Panel(result_preview, title="Tool Output (truncated)", border_style="yellow"))
-                        
-                        # Add tool result to conversation
+                            console.print(f"Tool Error Details: {type(tool_error).__name__}: {str(tool_error)}", style="dim red")
+                        # Add error result to conversation
                         conversation_history.append({
                             "role": "tool",
-                            "content": result,
+                            "content": f"Error executing search: {str(tool_error)}",
                             "tool_call_id": tool_call.id
                         })
                 
@@ -294,20 +418,26 @@ def main():
                 
                 if debug_mode:
                     console.print("\n🔧 [DEBUG] Sending follow-up request with tool results...", style="dim cyan")
+                    console.print(f"Message history length: {len(messages)}", style="dim cyan")
                 
-                final_response = client.chat.completions.create(
-                    model=params['model'],
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                    max_tokens=params['max_tokens'],
-                    temperature=params['temperature'],
-                    top_p=params['top_p'],
-                    frequency_penalty=params['frequency_penalty'],
-                    presence_penalty=params['presence_penalty']
-                )
-                
-                assistant_response = final_response.choices[0].message.content
+                try:
+                    final_response = client.chat.completions.create(
+                        model=params['model'],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="none",  # Force final response, no more tool calls
+                        max_tokens=params['max_tokens'],
+                        temperature=params['temperature'],
+                        top_p=params['top_p'],
+                        frequency_penalty=params['frequency_penalty'],
+                        presence_penalty=params['presence_penalty']
+                    )
+                    assistant_response = final_response.choices[0].message.content
+                except Exception as api_error:
+                    console.print(f"\n❌ API Error (follow-up call): {api_error}", style="bold red")
+                    if debug_mode:
+                        console.print(f"API Error Details: {type(api_error).__name__}: {str(api_error)}", style="dim red")
+                    assistant_response = f"Error generating response after search: {str(api_error)}"
                 
                 if debug_mode:
                     console.print("\n💬 [DEBUG] Final LLM Response:", style="dim cyan")
@@ -315,6 +445,8 @@ def main():
                 
                 # If no response was generated after tool calls, provide a fallback
                 if not assistant_response:
+                    if debug_mode:
+                        console.print("\n⚠️ [DEBUG] No final response content received from API", style="bold yellow")
                     assistant_response = "I searched for information but couldn't find relevant results or generate a response. Please try rephrasing your question or using more specific terms."
             else:
                 assistant_response = assistant_message.content
