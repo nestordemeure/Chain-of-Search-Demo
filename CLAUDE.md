@@ -46,3 +46,7 @@ The chatbot includes a built-in search tool for querying NERSC documentation:
 - Custom API endpoint support via environment variables
 - Configurable search parameters and model settings
 - Error handling for missing files and API failures
+- Debug mode support: Use `python search.py -debug` or `./doc.sh -debug` to display LLM thinking, tool call inputs, and outputs
+
+## Development Guidelines
+- **Never test code or functionality unless explicitly told to do so by the user**

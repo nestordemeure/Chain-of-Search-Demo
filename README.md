@@ -129,5 +129,3 @@ Potential improvements for production use:
 ## TODO
 
 * simplify the hell out of this readme
-* format output in markdown
-* add debug mode to see the thinking, research results, etc.

@@ -3,8 +3,12 @@ import json
 import os
 import subprocess
 import re
+import sys
 from openai import OpenAI
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
 
 def load_system_prompt():
     """Load system prompt from prompts/system.md"""
@@ -125,13 +129,19 @@ def search_docs_tool(keywords_str, docs_folder, context_lines=3):
     return format_search_results(search_results, for_llm=True)
 
 def main():
+    # Parse command line arguments
+    debug_mode = len(sys.argv) > 1 and sys.argv[1] == '-debug'
+    
     load_dotenv()
+    
+    # Initialize rich console
+    console = Console()
     
     api_key = os.getenv('CBORG_API_KEY')
     api_url = os.getenv('CBORG_API_URL')
     
     if not api_key or not api_url:
-        print("Error: CBORG_API_KEY and CBORG_API_URL must be set in .env file")
+        console.print("Error: CBORG_API_KEY and CBORG_API_URL must be set in .env file", style="bold red")
         return
     
     client = OpenAI(
@@ -163,15 +173,17 @@ def main():
     
     conversation_history = []
     
-    print("Chatbot initialized. Type 'quit' to exit.")
-    print("Use '/search keyword1, keyword2, ...' to search docs manually")
-    print("-" * 40)
+    console.print("Chatbot initialized. Type 'quit' to exit.", style="bold green")
+    console.print("Use '/search keyword1, keyword2, ...' to search docs manually", style="cyan")
+    if debug_mode:
+        console.print("🐛 DEBUG MODE: Tool call thinking and I/O will be displayed", style="bold yellow")
+    console.print("-" * 40, style="dim")
     
     while True:
         user_input = input("\nYou: ").strip()
         
         if user_input.lower() in ['quit', 'exit', 'q']:
-            print("Goodbye!")
+            console.print("Goodbye!", style="bold blue")
             break
         
         if not user_input:
@@ -185,12 +197,12 @@ def main():
                 docs_folder = params.get('docs_folder', 'docs')
                 context_lines = params.get('search_context_lines', 3)
                 
-                print(f"\n🔍 **[Manual Search: {', '.join(keywords)}]**")
+                console.print(f"\n🔍 [Manual Search: {', '.join(keywords)}]", style="bold yellow")
                 search_results = search_docs(keywords, docs_folder, context_lines)
                 formatted_results = format_search_results(search_results, for_llm=False)
-                print(f"\n{formatted_results}")
+                console.print(f"\n{formatted_results}")
             else:
-                print("\nUsage: /search keyword1, keyword2, ...")
+                console.print("\nUsage: /search keyword1, keyword2, ...", style="red")
             continue
         
         try:
@@ -199,8 +211,17 @@ def main():
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(conversation_history[-10:])
             
-            # Track if any tools were called
-            tools_used = []
+            # Track tool calls with detailed information
+            tool_call_info = []
+            
+            if debug_mode:
+                console.print("\n🔧 [DEBUG] Sending request to LLM...", style="dim cyan")
+                debug_messages = []
+                for msg in messages[-3:]:
+                    content = msg.get("content") or "(No content)"
+                    truncated_content = content[:200] + "..." if len(content) > 200 else content
+                    debug_messages.append({"role": msg["role"], "content": truncated_content})
+                console.print(Panel(json.dumps(debug_messages, indent=2), title="Request Messages (last 3)", border_style="cyan"))
             
             # First API call with tools
             response = client.chat.completions.create(
@@ -217,8 +238,19 @@ def main():
             
             assistant_message = response.choices[0].message
             
+            if debug_mode:
+                console.print("\n🧠 [DEBUG] LLM Response received", style="dim cyan")
+                if assistant_message.content:
+                    console.print(Panel(assistant_message.content, title="LLM Thinking/Content", border_style="green"))
+                else:
+                    console.print("[DEBUG] No content in response (likely pure tool call)", style="dim")
+            
             # Handle tool calls if any
             if assistant_message.tool_calls:
+                # Detect if this was likely from thinking/chain-of-thought
+                # This happens when there's no visible content but tools are called
+                in_thinking = assistant_message.content is None or assistant_message.content.strip() == ""
+                
                 # Add assistant message with tool calls to conversation
                 conversation_history.append({
                     "role": "assistant",
@@ -230,12 +262,24 @@ def main():
                 for tool_call in assistant_message.tool_calls:
                     if tool_call.function.name == "search_docs":
                         keywords = json.loads(tool_call.function.arguments)["keywords"]
-                        tools_used.append(keywords)
+                        tool_call_info.append({
+                            'keywords': keywords,
+                            'in_thinking': in_thinking
+                        })
+                        
+                        if debug_mode:
+                            console.print(f"\n🔍 [DEBUG] Tool Call Input: search_docs", style="dim yellow")
+                            console.print(Panel(f"Keywords: {keywords}", title="Tool Input", border_style="yellow"))
                         
                         docs_folder = params.get('docs_folder', 'docs')
                         context_lines = params.get('search_context_lines', 3)
                         
                         result = search_docs_tool(keywords, docs_folder, context_lines)
+                        
+                        if debug_mode:
+                            console.print(f"\n📤 [DEBUG] Tool Call Output:", style="dim yellow")
+                            result_preview = result[:500] + "..." if len(result) > 500 else result
+                            console.print(Panel(result_preview, title="Tool Output (truncated)", border_style="yellow"))
                         
                         # Add tool result to conversation
                         conversation_history.append({
@@ -247,6 +291,9 @@ def main():
                 # Single API call with tool results - let model decide on further tool calls
                 messages = [{"role": "system", "content": system_prompt}]
                 messages.extend(conversation_history[-10:])
+                
+                if debug_mode:
+                    console.print("\n🔧 [DEBUG] Sending follow-up request with tool results...", style="dim cyan")
                 
                 final_response = client.chat.completions.create(
                     model=params['model'],
@@ -261,23 +308,46 @@ def main():
                 )
                 
                 assistant_response = final_response.choices[0].message.content
+                
+                if debug_mode:
+                    console.print("\n💬 [DEBUG] Final LLM Response:", style="dim cyan")
+                    console.print(Panel(assistant_response or "(No final response)", title="Final Response", border_style="green"))
+                
+                # If no response was generated after tool calls, provide a fallback
+                if not assistant_response:
+                    assistant_response = "I searched for information but couldn't find relevant results or generate a response. Please try rephrasing your question or using more specific terms."
             else:
                 assistant_response = assistant_message.content
+                # Handle case where direct response is also None
+                if not assistant_response:
+                    assistant_response = "I'm having trouble generating a response. Please try rephrasing your question."
             
-            # Show search status automatically  
-            if tools_used:
-                search_status = f"**[Searched: {', '.join(tools_used)}]**"
-                print(f"\n{search_status}")
+            # Show detailed search status
+            if tool_call_info:
+                for call_info in tool_call_info:
+                    context_type = "🧠 thinking" if call_info['in_thinking'] else "💬 response"
+                    keywords_display = call_info['keywords']
+                    console.print(f"\n🔧 [Search Tool Called] Keywords: '{keywords_display}' | Context: {context_type}", style="dim")
             else:
-                print(f"\n**[No Search]**")
+                console.print(f"\n[No Search]", style="dim")
             
-            print(f"Bot: {assistant_response}")
+            console.print("\nBot:", style="bold magenta", end=" ")
+            # Render assistant response as markdown
+            if assistant_response:
+                markdown = Markdown(assistant_response)
+                console.print(markdown)
+            else:
+                console.print("(No response)")
             
             # Add final assistant response to conversation history
-            conversation_history.append({"role": "assistant", "content": assistant_response})
+            # Ensure we don't add None content to conversation history
+            if assistant_response is not None:
+                conversation_history.append({"role": "assistant", "content": assistant_response})
+            else:
+                conversation_history.append({"role": "assistant", "content": "(No response generated)"})
             
         except Exception as e:
-            print(f"Error: {e}")
+            console.print(f"Error: {e}", style="bold red")
 
 if __name__ == "__main__":
     main()
