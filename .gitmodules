@@ -1,0 +1,3 @@
+[submodule "nersc-docs"]
+	path = nersc-docs
+	url = https://gitlab.com/NERSC/nersc.gitlab.io.git
