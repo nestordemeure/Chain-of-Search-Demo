@@ -72,7 +72,6 @@ Edit [`config.json`](./config.json) to:
 ## TODO
 
 * confirm the model is functional
-* whenever a tool is called, display the tool name and inputs (display outputs when in debug mode)
 * Add `grep` tool
 * Add `read` tool
 * update system prompt

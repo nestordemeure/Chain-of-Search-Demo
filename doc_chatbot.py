@@ -10,6 +10,8 @@ from typing import Optional, List, Callable
 import llm
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.syntax import Syntax
 
 class DocumentationChatbot:
     """A simple chatbot for answering documentation questions"""
@@ -49,9 +51,59 @@ class DocumentationChatbot:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
     
+    def _wrap_tools(self, tools: List[Callable]) -> List[Callable]:
+        """Wrap all tools to add display functionality"""
+        def create_wrapper(tool_func):
+            def wrapper(*args, **kwargs):
+                # Get tool name
+                tool_name = getattr(tool_func, '__name__', 'Unknown Tool')
+                
+                # Combine args and kwargs for display
+                all_inputs = {}
+                if args:
+                    all_inputs['args'] = args
+                if kwargs:
+                    all_inputs.update(kwargs)
+                
+                # Display tool call
+                inputs_text = json.dumps(all_inputs, indent=2) if all_inputs else "No inputs"
+                self.console.print(
+                    Panel(
+                        f"[bold yellow]Tool:[/bold yellow] {tool_name}\n[bold cyan]Inputs:[/bold cyan]\n{inputs_text}",
+                        title="🔧 Tool Call",
+                        border_style="yellow",
+                        padding=(0, 1)
+                    )
+                )
+                
+                # Execute the tool
+                result = tool_func(*args, **kwargs)
+                
+                # Display output if debug mode
+                if self.config.get('debug', False):
+                    self.console.print(
+                        Panel(
+                            f"[bold green]Output:[/bold green]\n{str(result)}",
+                            title=f"🔧 Tool Output: {tool_name}",
+                            border_style="green",
+                            padding=(0, 1)
+                        )
+                    )
+                
+                return result
+            
+            # Preserve original function attributes
+            wrapper.__name__ = getattr(tool_func, '__name__', 'wrapped_tool')
+            wrapper.__doc__ = getattr(tool_func, '__doc__', None)
+            return wrapper
+        
+        return [create_wrapper(tool) for tool in tools]
+    
     def chat(self, initial_message: Optional[str] = None):
         """Start the chat interaction"""
-        conversation = self.model.conversation(tools=self.tools)
+        # Wrap tools for display
+        wrapped_tools = self._wrap_tools(self.tools)
+        conversation = self.model.conversation(tools=wrapped_tools)
         
         # Display welcome message
         if not initial_message:
