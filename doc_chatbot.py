@@ -64,6 +64,9 @@ class DocumentationChatbot:
         Returns:
             String containing grep results with file paths and line numbers
         """
+        # Print tool call start
+        self.console.print(f"🔍 Calling grep(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs}, nb_outputs={nb_outputs})")
+        
         # Tool implementation starts here
         # Use config defaults if not specified
         if nb_lines_outputs is None:
@@ -71,9 +74,6 @@ class DocumentationChatbot:
         if nb_outputs is None:
             nb_outputs = self.config['grep']['default_nb_outputs']
         
-        # Print tool call start
-        print(f"🔍 Calling grep(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs}, nb_outputs={nb_outputs})")
-
         # Get docs folder path
         docs_folder = self.config['docs_folder']
         
@@ -122,7 +122,8 @@ class DocumentationChatbot:
         
         # Print debug output if enabled
         if self.config['debug']:
-            print(f"🔍 grep output:\n```\n{result}\n```")
+            debug_md = Markdown(f"**🔍 grep output:**\n```\n{result}\n```")
+            self.console.print(debug_md)
         return result
     
     def readline(self, file: str, start_line: int, end_line: int) -> str:
@@ -138,7 +139,7 @@ class DocumentationChatbot:
             String containing the requested lines with line numbers
         """
         # Print tool call start
-        print(f"📖 Calling readline(file='{file}', start_line={start_line}, end_line={end_line})")
+        self.console.print(f"📖 Calling readline(file='{file}', start_line={start_line}, end_line={end_line})")
         
         # Tool implementation starts here
         # Ensure we have valid line numbers
@@ -163,10 +164,16 @@ class DocumentationChatbot:
         # Check if file exists
         if not file_path.exists():
             result = f"File '{file}' not found in documentation folder."
+            if self.config['debug']:
+                debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                self.console.print(debug_md)
             return result
         
         if not file_path.is_file():
             result = f"'{file}' is not a file."
+            if self.config['debug']:
+                debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                self.console.print(debug_md)
             return result
         
         try:
@@ -178,6 +185,9 @@ class DocumentationChatbot:
             total_lines = len(lines)
             if start_line > total_lines:
                 result = f"File '{file}' only has {total_lines} lines, but requested start_line is {start_line}."
+                if self.config['debug']:
+                    debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                    self.console.print(debug_md)
                 return result
             
             # Adjust end_line if it exceeds file length
@@ -201,14 +211,21 @@ class DocumentationChatbot:
             
             # Print debug output if enabled
             if self.config['debug']:
-                print(f"📖 readline output:\n```\n{result}\n```")
+                debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                self.console.print(debug_md)
             return result
             
         except UnicodeDecodeError:
             result = f"Error: File '{file}' appears to be binary or has encoding issues."
+            if self.config['debug']:
+                debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                self.console.print(debug_md)
             return result
         except Exception as e:
             result = f"Error reading file '{file}': {str(e)}"
+            if self.config['debug']:
+                debug_md = Markdown(f"**📖 readline output:**\n```\n{result}\n```")
+                self.console.print(debug_md)
             return result
     
     def chat(self, initial_message: Optional[str] = None):
