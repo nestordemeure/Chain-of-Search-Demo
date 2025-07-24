@@ -31,7 +31,7 @@ class DocumentationChatbot:
         self.system_prompt = self._load_system_prompt()
         
         # Define tools for the model
-        self.tools: List[Callable] = [self.keyword, self.grep, self.readline]
+        self.tools: List[Callable] = [self.keywords, self.grep, self.readline]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -51,73 +51,8 @@ class DocumentationChatbot:
         
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
-    
-    def keyword(self, keyword: str, nb_lines_outputs: int = None) -> str:
-        """
-        Search for a *single* keyword in documentation files.
-        
-        Args:
-            keyword: Exact keyword or phrase to search for (e.g., "A B" is treated as one term, not multiple)
-            nb_lines_outputs: Number of lines to show around each match (default from config)
-        
-        Returns:
-            String containing results with file paths and line numbers
-        """
-        # Tool implementation starts here
-        # Use config defaults if not specified
-        if nb_lines_outputs is None:
-            nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
-        
-        # Print tool call start
-        self.console.print(f"🔍 Calling keyword(keyword='{keyword}', nb_lines_outputs={nb_lines_outputs})")
 
-        # Get docs folder path
-        docs_folder = self.config['docs_folder']
-        
-        # Build grep command
-        cmd = [
-            'grep',
-            '-r',  # recursive search
-            '-i',  # case independent
-            '-n',  # show line numbers
-            '-H',  # show filenames
-            f'-C{nb_lines_outputs}',  # lines after (total will be nb_lines_outputs)
-            '--color=never',  # disable color output
-            keyword,
-            docs_folder
-        ]
-    
-        # Run grep command
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=Path.cwd()
-        )
-        
-        # Propagate grep errors as Python exceptions
-        if result.returncode == 2:
-            raise RuntimeError(f"Grep error: {result.stderr.strip()}")
-        
-        if result.returncode == 1:
-            return "No matches found."
-        
-        # Process output to make paths relative to docs folder
-        output = result.stdout.strip()
-        if output:
-            # Simple string substitution to make paths relative
-            docs_folder_with_slash = docs_folder.rstrip('/') + '/'
-            output = output.replace(docs_folder_with_slash, '')
-        
-        result = output if output else "No matches found."
-        
-        # Print debug output if enabled
-        if self.config['debug']:
-            debug_md = Markdown(f"**🔍 grep output:**\n```\n{result}\n```")
-            self.console.print(debug_md)
-        return result
-
-    def grep(self, pattern: str, nb_lines_outputs: int = None) -> str:
+    def grep(self, pattern: str) -> str:
         """
         Search for a pattern in documentation files using grep with regular expressions.
         
@@ -148,9 +83,7 @@ class DocumentationChatbot:
                     
                     Negation (use with caution):
                     - Use grep's -v flag programmatically if you need to exclude patterns
-                    
-            nb_lines_outputs: Number of lines to show around each match (default from config)
-        
+                            
         Returns:
             String containing grep results with file paths and line numbers
             
@@ -160,12 +93,8 @@ class DocumentationChatbot:
             - Use double backslashes (\\) in Python strings for single backslash in regex
             - For literal special characters, escape them: "\\." for period, "\\*" for asterisk
         """
-        # Tool implementation starts here
-        # Use config defaults if not specified
-        if nb_lines_outputs is None:
-            nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
-
         # Print tool call start
+        nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
         self.console.print(f"🔍 Calling grep(pattern='{pattern}', nb_lines_outputs={nb_lines_outputs})")
 
         # Get docs folder path
@@ -214,6 +143,66 @@ class DocumentationChatbot:
             self.console.print(debug_md)
         return result
     
+    def keywords(self, keywords: str) -> str:
+        """
+        Search for keywords in documentation files (using grep under the hood).
+        
+        Args:
+            keywords: Keywords to search for (space-separated if multiple)
+        
+        Returns:
+            String containing grep results with file paths and line numbers
+        """
+        # Print tool call start
+        nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
+        self.console.print(f"🔍 Calling keywords(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs})")
+
+        # Get docs folder path
+        docs_folder = self.config['docs_folder']
+        
+        # Build grep command
+        cmd = [
+            'grep',
+            '-r',  # recursive search
+            '-i',  # case independent
+            '-n',  # show line numbers
+            '-H',  # show filenames
+            f'-C{nb_lines_outputs}',  # lines after (total will be nb_lines_outputs)
+            '--color=never',  # disable color output
+            keywords.replace(" ", ".*"), # Add search pattern
+            docs_folder, # Add search directory
+        ]
+        
+        # Run grep command
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=Path.cwd()
+        )
+        
+        # Propagate grep errors as Python exceptions
+        if result.returncode == 2:
+            raise RuntimeError(f"Grep error: {result.stderr.strip()}")
+        
+        if result.returncode == 1:
+            return "No matches found."
+        
+        # Process output to make paths relative to docs folder
+        output = result.stdout.strip()
+        if output:
+            # Simple string substitution to make paths relative
+            docs_folder_with_slash = docs_folder.rstrip('/') + '/'
+            output = output.replace(docs_folder_with_slash, '')
+        
+        result = output if output else "No matches found."
+        
+        # Print debug output if enabled
+        if self.config['debug']:
+            debug_md = Markdown(f"**🔍 keywords output:**\n```\n{result}\n```")
+            self.console.print(debug_md)
+        return result
+
     def readline(self, file: str, start_line: int, end_line: int) -> str:
         """
         Read specific lines from a file in the documentation folder.

@@ -71,3 +71,4 @@ Edit [`config.json`](./config.json) to:
 
 ## TODO
 
+* restrict number of matches in tool outputs
