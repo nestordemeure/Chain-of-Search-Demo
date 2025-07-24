@@ -73,3 +73,4 @@ Edit [`config.json`](./config.json) to:
 
 * Add `read` tool
 * update system prompt
+* put debug wrapper back
