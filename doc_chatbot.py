@@ -31,7 +31,7 @@ class DocumentationChatbot:
         self.system_prompt = self._load_system_prompt()
         
         # Define tools for the model
-        self.tools: List[Callable] = [self.grep, self.readline]
+        self.tools: List[Callable] = [self.keyword, self.grep, self.readline]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -52,28 +52,25 @@ class DocumentationChatbot:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
     
-    def grep(self, keywords: str, nb_lines_outputs: int = None, nb_outputs: int = None) -> str:
+    def keyword(self, keyword: str, nb_lines_outputs: int = None) -> str:
         """
-        Search for keywords in documentation files using grep.
+        Search for a *single* keyword in documentation files.
         
         Args:
-            keywords: Keywords to search for (space-separated if multiple)
+            keyword: Exact keyword or phrase to search for (e.g., "A B" is treated as one term, not multiple)
             nb_lines_outputs: Number of lines to show around each match (default from config)
-            nb_outputs: Maximum number of matches to return (default from config)
         
         Returns:
-            String containing grep results with file paths and line numbers
+            String containing results with file paths and line numbers
         """
-        # Print tool call start
-        self.console.print(f"🔍 Calling grep(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs}, nb_outputs={nb_outputs})")
-        
         # Tool implementation starts here
         # Use config defaults if not specified
         if nb_lines_outputs is None:
             nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
-        if nb_outputs is None:
-            nb_outputs = self.config['grep']['default_nb_outputs']
         
+        # Print tool call start
+        self.console.print(f"🔍 Calling keyword(keyword='{keyword}', nb_lines_outputs={nb_lines_outputs})")
+
         # Get docs folder path
         docs_folder = self.config['docs_folder']
         
@@ -86,15 +83,106 @@ class DocumentationChatbot:
             '-H',  # show filenames
             f'-C{nb_lines_outputs}',  # lines after (total will be nb_lines_outputs)
             '--color=never',  # disable color output
+            keyword,
+            docs_folder
         ]
+    
+        # Run grep command
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=Path.cwd()
+        )
         
-        # Add search pattern - split keywords on space and join with OR
-        keyword_list = keywords.split() if isinstance(keywords, str) else [keywords]
-        pattern = '|'.join(keyword_list)
-        cmd.append(pattern)
+        # Propagate grep errors as Python exceptions
+        if result.returncode == 2:
+            raise RuntimeError(f"Grep error: {result.stderr.strip()}")
         
-        # Add search directory
-        cmd.append(docs_folder)
+        if result.returncode == 1:
+            return "No matches found."
+        
+        # Process output to make paths relative to docs folder
+        output = result.stdout.strip()
+        if output:
+            # Simple string substitution to make paths relative
+            docs_folder_with_slash = docs_folder.rstrip('/') + '/'
+            output = output.replace(docs_folder_with_slash, '')
+        
+        result = output if output else "No matches found."
+        
+        # Print debug output if enabled
+        if self.config['debug']:
+            debug_md = Markdown(f"**🔍 grep output:**\n```\n{result}\n```")
+            self.console.print(debug_md)
+        return result
+
+    def grep(self, pattern: str, nb_lines_outputs: int = None) -> str:
+        """
+        Search for a pattern in documentation files using grep with regular expressions.
+        
+        Args:
+            pattern: Grep-compatible regular expression pattern to search for.
+                    Common patterns for natural language searches:
+                    
+                    Basic patterns:
+                    - "word" - matches lines containing "word" (case-insensitive)
+                    - "jax.*containers" - matches lines with "jax" followed by "containers"
+                    - "containers.*jax" - matches lines with "containers" followed by "jax"
+                    
+                    Word boundaries (exact word matches):
+                    - "\\bjax\\b" - matches "jax" as a whole word (not "ajax" or "jaxon")
+                    - "\\bcontainers\\b.*\\bjax\\b" - both words as complete words
+                    
+                    Multiple alternatives:
+                    - "(jax|flax|optax)" - matches lines containing any of these words
+                    - "container(s)?" - matches "container" or "containers"
+                    
+                    Line position:
+                    - "^Error" - matches lines starting with "Error"
+                    - "example$" - matches lines ending with "example"
+                    
+                    Character classes:
+                    - "[Jj]ax" - matches "Jax" or "jax"
+                    - "version [0-9]+" - matches "version" followed by numbers
+                    
+                    Negation (use with caution):
+                    - Use grep's -v flag programmatically if you need to exclude patterns
+                    
+            nb_lines_outputs: Number of lines to show around each match (default from config)
+        
+        Returns:
+            String containing grep results with file paths and line numbers
+            
+        Note:
+            - Search is case-insensitive by default (-i flag)
+            - Searches recursively through all files in docs folder
+            - Use double backslashes (\\) in Python strings for single backslash in regex
+            - For literal special characters, escape them: "\\." for period, "\\*" for asterisk
+        """
+        # Tool implementation starts here
+        # Use config defaults if not specified
+        if nb_lines_outputs is None:
+            nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
+
+        # Print tool call start
+        self.console.print(f"🔍 Calling grep(pattern='{pattern}', nb_lines_outputs={nb_lines_outputs})")
+
+        # Get docs folder path
+        docs_folder = self.config['docs_folder']
+        
+        # Build grep command
+        cmd = [
+            'grep',
+            '-r',  # recursive search
+            '-i',  # case independent
+            '-n',  # show line numbers
+            '-H',  # show filenames
+            f'-C{nb_lines_outputs}',  # lines of context around matches
+            '--color=never',  # disable color output
+            pattern, # Add the pattern directly as a regexp
+            docs_folder, # Add search directory
+        ]
         
         # Run grep command
         result = subprocess.run(
