@@ -1,15 +1,14 @@
 {
     "model": {
-        "name": "cborg-gpt-4.1"
+        "name": "cborg-gpt-4.1-mini"
     },
     "prompts": {
-        "welcome_message": "Hello! I'm here to help you with documentation questions. What would you like to know?",
+        "welcome_message": "Hello! I'm here to help you with your NERSC questions. What would you like to know?",
         "goodbye_message": "Goodbye! Feel free to ask more questions anytime."
     },
-    "debug": true,
+    "debug": false,
     "docs_folder": "nersc-docs/docs",
     "grep": {
-        "default_nb_lines_outputs": 3,
-        "default_nb_outputs": 10
+        "default_nb_lines_outputs": 3
     }
 }
