@@ -81,10 +81,10 @@ class DocumentationChatbot:
         cmd = [
             'grep',
             '-r',  # recursive search
+            '-i',  # case independent
             '-n',  # show line numbers
             '-H',  # show filenames
-            f'-A{nb_lines_outputs-1}',  # lines after (total will be nb_lines_outputs)
-            f'-m{nb_outputs}',  # max matches per file
+            f'-C{nb_lines_outputs}',  # lines after (total will be nb_lines_outputs)
             '--color=never',  # disable color output
         ]
         

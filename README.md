@@ -71,4 +71,5 @@ Edit [`config.json`](./config.json) to:
 
 ## TODO
 
-* update system prompt
+* grep's nb_outputs is currently ignored, fix it
+* the multi keywords function in grep is also being ignored
