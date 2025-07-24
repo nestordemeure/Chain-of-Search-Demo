@@ -71,5 +71,5 @@ Edit [`config.json`](./config.json) to:
 
 ## TODO
 
-* grep's nb_outputs is currently ignored, fix it
-* the multi keywords function in grep is also being ignored
+* grep's nb_outputs is currently ignored
+* the multi keywords function in grep is also being mostly ignored
