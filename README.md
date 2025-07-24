@@ -72,4 +72,3 @@ Edit [`config.json`](./config.json) to:
 ## TODO
 
 * update system prompt
-* put debug wrapper back

@@ -63,13 +63,17 @@ class DocumentationChatbot:
         
         Returns:
             String containing grep results with file paths and line numbers
-        """
+        """        
+        # Tool implementation starts here
         # Use config defaults if not specified
         if nb_lines_outputs is None:
             nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
         if nb_outputs is None:
             nb_outputs = self.config['grep']['default_nb_outputs']
-        
+
+        # Print tool call start
+        print(f"🔍 Calling grep(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs}, nb_outputs={nb_outputs})")
+
         # Get docs folder path
         docs_folder = self.config['docs_folder']
         
@@ -114,20 +118,29 @@ class DocumentationChatbot:
             docs_folder_with_slash = docs_folder.rstrip('/') + '/'
             output = output.replace(docs_folder_with_slash, '')
         
-        return output if output else "No matches found."
+        result = output if output else "No matches found."
+        
+        # Print debug output if enabled
+        if self.config['debug']:
+            print(f"🔍 grep output: {result}")
+        return result
     
     def readline(self, file: str, start_line: int, end_line: int) -> str:
         """
         Read specific lines from a file in the documentation folder.
         
         Args:
-            file: Path to the file (relative to docs_folder)
+            file: Path to the file relative to docs_folder
             start_line: Starting line number (1-indexed)
             end_line: Ending line number (1-indexed, inclusive)
         
         Returns:
             String containing the requested lines with line numbers
         """
+        # Print tool call start
+        print(f"📖 Calling readline(file='{file}', start_line={start_line}, end_line={end_line})")
+        
+        # Tool implementation starts here
         # Ensure we have valid line numbers
         if start_line < 1:
             raise ValueError("start_line must be >= 1")
@@ -149,10 +162,12 @@ class DocumentationChatbot:
         
         # Check if file exists
         if not file_path.exists():
-            return f"File '{file}' not found in documentation folder."
+            result = f"File '{file}' not found in documentation folder."
+            return result
         
         if not file_path.is_file():
-            return f"'{file}' is not a file."
+            result = f"'{file}' is not a file."
+            return result
         
         try:
             # Read the file and extract the requested lines
@@ -162,7 +177,8 @@ class DocumentationChatbot:
             # Check if line numbers are within file bounds
             total_lines = len(lines)
             if start_line > total_lines:
-                return f"File '{file}' only has {total_lines} lines, but requested start_line is {start_line}."
+                result = f"File '{file}' only has {total_lines} lines, but requested start_line is {start_line}."
+                return result
             
             # Adjust end_line if it exceeds file length
             actual_end_line = min(end_line, total_lines)
@@ -182,12 +198,22 @@ class DocumentationChatbot:
                 result_lines.append(f"{i:4d}: {clean_line}")
             
             result = f"Lines {start_line}-{actual_end_line} from '{file}':{warning}\n" + "\n".join(result_lines)
+            
+            # Print debug output if enabled
+            if self.config['debug']:
+                print(f"📖 readline output: {result}")
             return result
             
         except UnicodeDecodeError:
-            return f"Error: File '{file}' appears to be binary or has encoding issues."
+            result = f"Error: File '{file}' appears to be binary or has encoding issues."
+            if self.config.get('debug', False):
+                print(f"📖 readline output: {result}")
+            return result
         except Exception as e:
-            return f"Error reading file '{file}': {str(e)}"
+            result = f"Error reading file '{file}': {str(e)}"
+            if self.config.get('debug', False):
+                print(f"📖 readline output: {result}")
+            return result
     
     def chat(self, initial_message: Optional[str] = None):
         """Start the chat interaction"""
