@@ -63,14 +63,14 @@ class DocumentationChatbot:
         
         Returns:
             String containing grep results with file paths and line numbers
-        """        
+        """
         # Tool implementation starts here
         # Use config defaults if not specified
         if nb_lines_outputs is None:
             nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
         if nb_outputs is None:
             nb_outputs = self.config['grep']['default_nb_outputs']
-
+        
         # Print tool call start
         print(f"🔍 Calling grep(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs}, nb_outputs={nb_outputs})")
 
@@ -122,7 +122,7 @@ class DocumentationChatbot:
         
         # Print debug output if enabled
         if self.config['debug']:
-            print(f"🔍 grep output: {result}")
+            print(f"🔍 grep output:\n```\n{result}\n```")
         return result
     
     def readline(self, file: str, start_line: int, end_line: int) -> str:
@@ -201,18 +201,14 @@ class DocumentationChatbot:
             
             # Print debug output if enabled
             if self.config['debug']:
-                print(f"📖 readline output: {result}")
+                print(f"📖 readline output:\n```\n{result}\n```")
             return result
             
         except UnicodeDecodeError:
             result = f"Error: File '{file}' appears to be binary or has encoding issues."
-            if self.config.get('debug', False):
-                print(f"📖 readline output: {result}")
             return result
         except Exception as e:
             result = f"Error reading file '{file}': {str(e)}"
-            if self.config.get('debug', False):
-                print(f"📖 readline output: {result}")
             return result
     
     def chat(self, initial_message: Optional[str] = None):
