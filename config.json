@@ -9,6 +9,6 @@
     "debug": false,
     "docs_folder": "nersc-docs/docs",
     "grep": {
-        "default_nb_lines_outputs": 3
+        "default_nb_lines_outputs": 5
     }
 }
