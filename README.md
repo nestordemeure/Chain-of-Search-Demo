@@ -28,6 +28,7 @@ llm keys set cborg
 # Locate the LLM configuration file
 LLM_DIR=$(dirname "$(llm logs path)")
 CONFIG_FILE="$LLM_DIR/extra-openai-models.yaml"
+touch $CONFIG_FILE
 
 # Create a local shortcut to the config file for ease of use
 ln -s "$CONFIG_FILE" llm_models.yaml
@@ -67,3 +68,11 @@ Edit [`config.json`](./config.json) to:
 - Toggle debug mode (`debug: true/false`)
 - Configure documentation folder path (`docs_folder`)
 - etc.
+
+## TODO
+
+* confirm the model is functional
+* whenever a tool is called, display the tool name and inputs (display outputs when in debug mode)
+* Add `grep` tool
+* Add `read` tool
+* update system prompt
