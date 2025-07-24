@@ -7,5 +7,9 @@
         "goodbye_message": "Goodbye! Feel free to ask more questions anytime."
     },
     "debug": true,
-    "docs_folder": "nersc-docs/docs"
+    "docs_folder": "nersc-docs/docs",
+    "grep": {
+        "default_nb_lines_outputs": 3,
+        "default_nb_outputs": 10
+    }
 }

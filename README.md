@@ -71,7 +71,5 @@ Edit [`config.json`](./config.json) to:
 
 ## TODO
 
-* confirm the model is functional
-* Add `grep` tool
 * Add `read` tool
 * update system prompt

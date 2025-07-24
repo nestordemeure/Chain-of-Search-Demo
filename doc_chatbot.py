@@ -5,6 +5,7 @@ Documentation Chatbot - A simple chatbot to answer questions about documentation
 
 import sys
 import json
+import subprocess
 from pathlib import Path
 from typing import Optional, List, Callable
 import llm
@@ -29,8 +30,8 @@ class DocumentationChatbot:
         # Load system prompt
         self.system_prompt = self._load_system_prompt()
         
-        # Define tools for the model (empty for now)
-        self.tools: List[Callable] = []
+        # Define tools for the model
+        self.tools: List[Callable] = [self.grep]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -50,6 +51,69 @@ class DocumentationChatbot:
         
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
+    
+    def grep(self, keywords: List[str], nb_lines_outputs: Optional[int] = None, nb_outputs: Optional[int] = None) -> str:
+        """
+        Search for keywords in documentation files using grep.
+        
+        Args:
+            keywords: List of keywords to search for
+            nb_lines_outputs: Number of lines to show around each match (default from config)
+            nb_outputs: Maximum number of matches to return (default from config)
+        
+        Returns:
+            String containing grep results with file paths and line numbers
+        """
+        # Use config defaults if not specified
+        if nb_lines_outputs is None:
+            nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
+        if nb_outputs is None:
+            nb_outputs = self.config['grep']['default_nb_outputs']
+        
+        # Get docs folder path
+        docs_folder = self.config['docs_folder']
+        
+        # Build grep command
+        cmd = [
+            'grep',
+            '-r',  # recursive search
+            '-n',  # show line numbers
+            '-H',  # show filenames
+            f'-A{nb_lines_outputs-1}',  # lines after (total will be nb_lines_outputs)
+            f'-m{nb_outputs}',  # max matches per file
+            '--color=never',  # disable color output
+        ]
+        
+        # Add search pattern - join keywords with OR
+        pattern = '|'.join(keywords)
+        cmd.append(pattern)
+        
+        # Add search directory
+        cmd.append(docs_folder)
+        
+        # Run grep command
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=Path.cwd()
+        )
+        
+        # Propagate grep errors as Python exceptions
+        if result.returncode == 2:
+            raise RuntimeError(f"Grep error: {result.stderr.strip()}")
+        
+        if result.returncode == 1:
+            return "No matches found."
+        
+        # Process output to make paths relative to docs folder
+        output = result.stdout.strip()
+        if output:
+            # Simple string substitution to make paths relative
+            docs_folder_with_slash = docs_folder.rstrip('/') + '/'
+            output = output.replace(docs_folder_with_slash, '')
+        
+        return output if output else "No matches found."
     
     def _wrap_tools(self, tools: List[Callable]) -> List[Callable]:
         """Wrap all tools to add display functionality"""
