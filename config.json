@@ -1,6 +1,6 @@
 {
     "model": {
-        "name": "cborg-o4-mini"
+        "name": "cborg-gpt-4.1-mini"
     },
     "prompts": {
         "welcome_message": "Hello! I'm here to help you with documentation questions. What would you like to know?",

@@ -31,7 +31,7 @@ class DocumentationChatbot:
         self.system_prompt = self._load_system_prompt()
         
         # Define tools for the model
-        self.tools: List[Callable] = [self.grep]
+        self.tools: List[Callable] = [self.grep, self.readline]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -115,6 +115,79 @@ class DocumentationChatbot:
             output = output.replace(docs_folder_with_slash, '')
         
         return output if output else "No matches found."
+    
+    def readline(self, file: str, start_line: int, end_line: int) -> str:
+        """
+        Read specific lines from a file in the documentation folder.
+        
+        Args:
+            file: Path to the file (relative to docs_folder)
+            start_line: Starting line number (1-indexed)
+            end_line: Ending line number (1-indexed, inclusive)
+        
+        Returns:
+            String containing the requested lines with line numbers
+        """
+        # Ensure we have valid line numbers
+        if start_line < 1:
+            raise ValueError("start_line must be >= 1")
+        if end_line < start_line:
+            raise ValueError("end_line must be >= start_line")
+        
+        # Get docs folder path and construct full file path
+        docs_folder = Path(self.config['docs_folder'])
+        file_path = docs_folder / file
+        
+        # Security check: ensure the file is within docs_folder
+        try:
+            file_path = file_path.resolve()
+            docs_folder = docs_folder.resolve()
+            if not str(file_path).startswith(str(docs_folder)):
+                raise ValueError(f"File path '{file}' is outside the documentation folder")
+        except Exception as e:
+            raise ValueError(f"Invalid file path '{file}': {e}")
+        
+        # Check if file exists
+        if not file_path.exists():
+            return f"File '{file}' not found in documentation folder."
+        
+        if not file_path.is_file():
+            return f"'{file}' is not a file."
+        
+        try:
+            # Read the file and extract the requested lines
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            # Check if line numbers are within file bounds
+            total_lines = len(lines)
+            if start_line > total_lines:
+                return f"File '{file}' only has {total_lines} lines, but requested start_line is {start_line}."
+            
+            # Adjust end_line if it exceeds file length
+            actual_end_line = min(end_line, total_lines)
+            if end_line > total_lines:
+                warning = f" (Note: file only has {total_lines} lines, showing up to line {actual_end_line})"
+            else:
+                warning = ""
+            
+            # Extract the requested lines (convert to 0-indexed)
+            selected_lines = lines[start_line-1:actual_end_line]
+            
+            # Format output with line numbers
+            result_lines = []
+            for i, line in enumerate(selected_lines, start=start_line):
+                # Remove trailing newline for cleaner output, but preserve the line structure
+                clean_line = line.rstrip('\n')
+                result_lines.append(f"{i:4d}: {clean_line}")
+            
+            result = f"Lines {start_line}-{actual_end_line} from '{file}':{warning}\n" + "\n".join(result_lines)
+            return result
+            
+        except UnicodeDecodeError:
+            return f"Error: File '{file}' appears to be binary or has encoding issues."
+        except Exception as e:
+            return f"Error reading file '{file}': {str(e)}"
     
     def chat(self, initial_message: Optional[str] = None):
         """Start the chat interaction"""

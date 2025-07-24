@@ -71,6 +71,5 @@ Edit [`config.json`](./config.json) to:
 
 ## TODO
 
-* Add `read` tool
 * update system prompt
 * put debug wrapper back
