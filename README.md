@@ -96,8 +96,6 @@ You: How can I install JAX with containers then get into that container with VSc
 
 ## TODO
 
-* ignore the given folders / extension in grep?
-
 * have prompt further emphatize conciseness in answers
 * have prompt set output sources format as a bullet list of links to the proper pages / headings
 

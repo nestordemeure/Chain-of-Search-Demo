@@ -108,7 +108,18 @@ class DocumentationChatbot:
         prompt_path = Path(__file__).parent / "system_prompt.md"
         
         with open(prompt_path, 'r', encoding='utf-8') as f:
-            return f.read()
+            system_prompt = f.read()
+        
+        # Append folder structure if enabled in config
+        if self.config['search']['include_folder_structure']:
+            docs_folder = self.config['docs_folder']
+            ignored_folders = set(self.config['search']['ignored_folders'])
+            ignored_extensions = set(self.config['search']['ignored_extensions'])
+            
+            folder_structure = tree(docs_folder, ignore_folders=ignored_folders, ignore_extensions=ignored_extensions)
+            system_prompt += f"\n\nDocumentation files:\n{folder_structure}"
+        
+        return system_prompt
 
     def strings_search(self, strings: Set[str]) -> str:
         """
@@ -142,6 +153,16 @@ class DocumentationChatbot:
             f'-C{nb_lines_outputs}',  # lines per hit
             '--color=never'  # disable color output
         ]
+        
+        # Add exclusions for ignored folders
+        ignored_folders = self.config['search']['ignored_folders']
+        for folder in ignored_folders:
+            cmd.extend(['--exclude-dir', folder])
+        
+        # Add exclusions for ignored extensions
+        ignored_extensions = self.config['search']['ignored_extensions']
+        for ext in ignored_extensions:
+            cmd.extend(['--exclude', f'*.{ext}'])
 
         # Add search patterns
         strings_list = [strings] if isinstance(strings, str) else strings # ensures the input is a list
