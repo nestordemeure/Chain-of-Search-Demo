@@ -31,7 +31,7 @@ class DocumentationChatbot:
         self.system_prompt = self._load_system_prompt()
         
         # Define tools for the model
-        self.tools: List[Callable] = [self.keywords, self.grep, self.readline]
+        self.tools: List[Callable] = [self.keywords, self.readline]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -94,7 +94,7 @@ class DocumentationChatbot:
             - For literal special characters, escape them: "\\." for period, "\\*" for asterisk
         """
         # Print tool call start
-        nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
+        nb_lines_outputs = self.config['search']['default_nb_lines_outputs']
         self.console.print(f"🔍 Calling grep(pattern='{pattern}', nb_lines_outputs={nb_lines_outputs})")
 
         # Get docs folder path
@@ -154,7 +154,7 @@ class DocumentationChatbot:
             String containing grep results with file paths and line numbers
         """
         # Print tool call start
-        nb_lines_outputs = self.config['grep']['default_nb_lines_outputs']
+        nb_lines_outputs = self.config['search']['default_nb_lines_outputs']
         self.console.print(f"🔍 Calling keywords(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs})")
 
         # Get docs folder path

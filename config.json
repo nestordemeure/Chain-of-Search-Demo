@@ -8,7 +8,7 @@
     },
     "debug": false,
     "docs_folder": "nersc-docs/docs",
-    "grep": {
+    "search": {
         "default_nb_lines_outputs": 5
     }
 }
