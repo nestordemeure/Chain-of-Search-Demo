@@ -147,4 +147,3 @@ References:
 ## TODO
 
 * restrict number of matches in tool outputs
-* have `keywords` search for any ordering of the keywords by converting the space seperated list into a big regexp?
