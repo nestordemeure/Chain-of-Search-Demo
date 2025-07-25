@@ -67,6 +67,7 @@ Edit [`config.json`](./config.json) to:
 - Change the model in use (set `model.name`)
 - Toggle debug mode (`debug: true/false`)
 - Configure documentation folder path (`docs_folder`)
+- Pass the documentation structure to the LLM (`include_folder_structure: true/false`)
 - etc.
 
 ## Inner Workings

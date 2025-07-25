@@ -37,9 +37,23 @@ def tree(path, prefix="", level=0, ignore_folders=set(), ignore_extensions=set()
         elif item.endswith('.md'):
             result += f"{prefix}{current_prefix}{item}\n"
             with open(item_path, 'r', encoding='utf-8') as f:
-                headings = [(line_num, match.group(1), match.group(2)) 
-                           for line_num, line in enumerate(f, 1) 
-                           if (match := re.match(r'^(#{1,6})\s+(.+)', line.strip()))]
+                headings = []
+                found_first_h1 = False
+                
+                for line_num, line in enumerate(f, 1):
+                    match = re.match(r'^(#{1,6})\s+(.+)', line.strip())
+                    if match:
+                        hashes, title = match.group(1), match.group(2)
+                        heading_level = len(hashes)
+                        
+                        # Only include the first level 1 heading, then all other levels
+                        if heading_level == 1:
+                            if not found_first_h1:
+                                headings.append((line_num, hashes, title))
+                                found_first_h1 = True
+                            # Skip subsequent level 1 headings
+                        else:
+                            headings.append((line_num, hashes, title))
                 
                 for j, (line_num, hashes, title) in enumerate(headings):
                     level = len(hashes)
@@ -117,7 +131,11 @@ class DocumentationChatbot:
             ignored_extensions = set(self.config['search']['ignored_extensions'])
             
             folder_structure = tree(docs_folder, ignore_folders=ignored_folders, ignore_extensions=ignored_extensions)
-            system_prompt += f"\n\nDocumentation files:\n{folder_structure}"
+            system_prompt += f"\n\nFeel free to read directly into the documentation:\n/\n{folder_structure}"
+        
+        # Display system prompt if debug is enabled
+        if self.config['debug']:
+            print(system_prompt)
         
         return system_prompt
 

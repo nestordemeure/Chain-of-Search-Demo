@@ -10,7 +10,7 @@
     "docs_folder": "nersc-docs/docs",
     "search": {
         "default_nb_lines_outputs": 5,
-        "include_folder_structure": true,
+        "include_folder_structure": false,
         "ignored_folders": [
             "timeline",
             "images",
