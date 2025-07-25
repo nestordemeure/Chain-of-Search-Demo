@@ -149,3 +149,4 @@ References:
 
 * restrict number of matches in tool outputs
 * cut the `grep` tool as it is redundant with keywords?
+* have `keywords` search for any ordering of the keywords by converting the space seperated list into a big regexp?
