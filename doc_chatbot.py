@@ -110,7 +110,7 @@ class DocumentationChatbot:
             raise RuntimeError(f"Grep error: {result.stderr.strip()}")
         
         if result.returncode == 1:
-            return "No matches found."
+            return "No matches found, you might want to try fewer keywords."
         
         # Process output to make paths relative to docs folder
         output = result.stdout.strip()
@@ -119,7 +119,7 @@ class DocumentationChatbot:
             docs_folder_with_slash = docs_folder.rstrip('/') + '/'
             output = output.replace(docs_folder_with_slash, '')
         
-        result = output if output else "No matches found."
+        result = output if output else "No matches found, you might want to try fewer keywords."
         
         # Print debug output if enabled
         if self.config['debug']:
