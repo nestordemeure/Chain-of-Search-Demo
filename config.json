@@ -6,11 +6,14 @@
         "welcome_message": "Hello! I'm here to help you with your NERSC questions. What would you like to know?",
         "goodbye_message": "Goodbye! Feel free to ask more questions anytime."
     },
-    "debug": false,
+    "debug": true,
     "docs_folder": "nersc-docs/docs",
     "search": {
         "default_nb_lines_outputs": 5,
-        "include_folder_structure": false,
+        "folder_structure": {
+            "include": false,
+            "develop_markdown_headings": true
+        },
         "ignored_folders": [
             "timeline",
             "images",

@@ -16,7 +16,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from itertools import permutations
 
-def tree(path, prefix="", level=0, ignore_folders=set(), ignore_extensions=set()):
+def tree(path, prefix="", level=0, ignore_folders=set(), ignore_extensions=set(), include_headings=False):
     items = sorted(os.listdir(path))
     result = ""
     
@@ -33,8 +33,8 @@ def tree(path, prefix="", level=0, ignore_folders=set(), ignore_extensions=set()
         
         if os.path.isdir(item_path):
             result += f"{prefix}{current_prefix}{item}/\n"
-            result += tree(item_path, next_prefix, level + 1, ignore_folders, ignore_extensions)
-        elif item.endswith('.md'):
+            result += tree(item_path, next_prefix, level + 1, ignore_folders, ignore_extensions, include_headings)
+        elif item.endswith('.md') and include_headings:
             result += f"{prefix}{current_prefix}{item}\n"
             with open(item_path, 'r', encoding='utf-8') as f:
                 headings = []
@@ -125,12 +125,13 @@ class DocumentationChatbot:
             system_prompt = f.read()
         
         # Append folder structure if enabled in config
-        if self.config['search']['include_folder_structure']:
+        if self.config['search']['folder_structure']['include']:
             docs_folder = self.config['docs_folder']
             ignored_folders = set(self.config['search']['ignored_folders'])
             ignored_extensions = set(self.config['search']['ignored_extensions'])
+            include_headings = self.config['search']['folder_structure']['develop_markdown_headings']
             
-            folder_structure = tree(docs_folder, ignore_folders=ignored_folders, ignore_extensions=ignored_extensions)
+            folder_structure = tree(docs_folder, ignore_folders=ignored_folders, ignore_extensions=ignored_extensions, include_headings=include_headings)
             system_prompt += f"\n\nFeel free to read directly into the documentation:\n/\n{folder_structure}"
         
         # Display system prompt if debug is enabled
