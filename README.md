@@ -83,21 +83,15 @@ For example, a complex user question like the one below triggers a series of str
 ```
 🤖 Documentation Bot: Hello! I'm here to help you with your NERSC questions. What would you like to know?                                               
 
-You: How can I install JAX with containers then get into that container with VScode to develop my code there?
+You: How can I install JAX with a container then work inside it with VScode?
 
-🔍 Calling keywords(keywords='jax container vscode', nb_lines_outputs=5)
-🔍 Calling keywords(keywords='jax container', nb_lines_outputs=5)
-🔍 Calling keywords(keywords='vscode container develop', nb_lines_outputs=5)
+🔍 Calling strings_search(strings=['jax', 'container', 'vscode'], nb_lines_outputs=5)
+🔍 Calling strings_search(strings=['container', 'vscode'], nb_lines_outputs=5)
+🔍 Calling strings_search(strings=['jax', 'container'], nb_lines_outputs=5)
 📖 Calling readline(file='development/languages/python/using-python-perlmutter.md', start_line=250, end_line=310)
-🔍 Calling keywords(keywords='vscode container', nb_lines_outputs=5)
-📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=420, end_line=440)
-📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=400, end_line=420)
-📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=380, end_line=399)   
+📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=420, end_line=440) 
 ```
 
 ## TODO
-
-* have prompt further emphatize conciseness in answers
-* have prompt set output sources format as a bullet list of links to the proper pages / headings
 
 * restrict number of matches in tool outputs
