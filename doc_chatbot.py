@@ -2,7 +2,8 @@
 """
 Documentation Chatbot - A simple chatbot to answer questions about documentation
 """
-
+import os
+import re
 import sys
 import json
 import subprocess
@@ -14,6 +15,62 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 from itertools import permutations
+
+def tree(path, prefix="", level=0, ignore_folders=set(), ignore_extensions=set()):
+    items = sorted(os.listdir(path))
+    result = ""
+    
+    filtered_items = [item for item in items if not (
+        (os.path.isdir(os.path.join(path, item)) and item in ignore_folders) or
+        (os.path.isfile(os.path.join(path, item)) and any(item.endswith(ext) for ext in ignore_extensions))
+    )]
+    
+    for i, item in enumerate(filtered_items):
+        item_path = os.path.join(path, item)
+        is_last = i == len(filtered_items) - 1
+        current_prefix = "└── " if is_last else "├── "
+        next_prefix = prefix + ("    " if is_last else "│   ")
+        
+        if os.path.isdir(item_path):
+            result += f"{prefix}{current_prefix}{item}/\n"
+            result += tree(item_path, next_prefix, level + 1, ignore_folders, ignore_extensions)
+        elif item.endswith('.md'):
+            result += f"{prefix}{current_prefix}{item}\n"
+            with open(item_path, 'r', encoding='utf-8') as f:
+                headings = [(line_num, match.group(1), match.group(2)) 
+                           for line_num, line in enumerate(f, 1) 
+                           if (match := re.match(r'^(#{1,6})\s+(.+)', line.strip()))]
+                
+                for j, (line_num, hashes, title) in enumerate(headings):
+                    level = len(hashes)
+                    
+                    # Find if this is the last heading at this level or deeper
+                    is_last_at_level = True
+                    for k in range(j + 1, len(headings)):
+                        if len(headings[k][1]) <= level:
+                            is_last_at_level = False
+                            break
+                    
+                    # Build the tree structure
+                    tree_parts = []
+                    for l in range(1, level):
+                        # Check if there are more headings at this level or deeper after current
+                        has_more_at_level = False
+                        for k in range(j + 1, len(headings)):
+                            if len(headings[k][1]) == l:
+                                has_more_at_level = True
+                                break
+                            elif len(headings[k][1]) < l:
+                                break
+                        tree_parts.append("│   " if has_more_at_level else "    ")
+                    
+                    heading_prefix = "└── " if is_last_at_level else "├── "
+                    indent = "".join(tree_parts)
+                    result += f"{next_prefix}{indent}{heading_prefix}line {line_num}: {hashes} {title}\n"
+        else:
+            result += f"{prefix}{current_prefix}{item}\n"
+    
+    return result
 
 class DocumentationChatbot:
     """A simple chatbot for answering documentation questions"""

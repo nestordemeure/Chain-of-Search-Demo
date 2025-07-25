@@ -9,6 +9,24 @@
     "debug": false,
     "docs_folder": "nersc-docs/docs",
     "search": {
-        "default_nb_lines_outputs": 5
+        "default_nb_lines_outputs": 5,
+        "include_folder_structure": true,
+        "ignored_folders": [
+            "timeline",
+            "images",
+            "Images",
+            "img"
+        ],
+        "ignored_extensions": [
+            "gif",
+            "jpg",
+            "png",
+            "svg",
+            "css",
+            "js",
+            "xml",
+            "pdf",
+            "gitkeep"
+        ]
     }
 }
