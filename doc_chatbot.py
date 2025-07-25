@@ -7,7 +7,7 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Set
 import llm
 from rich.console import Console
 from rich.markdown import Markdown
@@ -32,7 +32,7 @@ class DocumentationChatbot:
         self.system_prompt = self._load_system_prompt()
         
         # Define tools for the model
-        self.tools: List[Callable] = [self.keywords, self.readline]
+        self.tools: List[Callable] = [self.strings_search, self.readline]
     
     def _load_config(self) -> dict:
         """Load configuration from JSON file"""
@@ -53,24 +53,24 @@ class DocumentationChatbot:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read()
 
-    def keywords(self, keywords: str) -> str:
+    def strings_search(self, strings: Set[str]) -> str:
         """
-        Search for keywords in documentation files using grep.
+        Returns documentation paragraphs that contain *all* of the given strings, in any order (case independent).
 
         Args:
-            keywords (str): One or more space-separated keywords to search for.
-                            Matching is order-independent—only files containing all keywords, regardless of order, will be returned.
+            strings (Set[str]): One or more strings to search for.
+                                Matching is order-independent—only paragraphs containing all strings, regardless of order, will be returned.
 
         Returns:
-            str: Grep results showing file paths and matching line numbers.
+            str: Results showing file paths and matching line numbers.
 
-        Warning:
-            For best results, keep the number of keywords small even if that means running subsequent searches. The more keywords you use, the less likely it is that all will appear together in a given piece of text.
+        Notes:
+            For best results, keep the number of strings small even if that means running subsequent searches. The more strings you use, the less likely it is that all will appear together in a given piece of text.
             Also, use shorter, more common substrings (e.g., "install") rather than longer or more specific forms (e.g., "installation") to increase match likelihood.
         """
         # Print tool call start
         nb_lines_outputs = self.config['search']['default_nb_lines_outputs']
-        self.console.print(f"🔍 Calling keywords(keywords='{keywords}', nb_lines_outputs={nb_lines_outputs})")
+        self.console.print(f"🔍 Calling strings_search(strings={strings}, nb_lines_outputs={nb_lines_outputs})")
 
         # Get docs folder path
         docs_folder = self.config['docs_folder']
@@ -87,7 +87,8 @@ class DocumentationChatbot:
         ]
 
         # Add search patterns
-        keywords_list = keywords.split()
+        strings_list = [strings] if isinstance(strings, str) else strings # ensures the input is a list
+        keywords_list = [word for string in strings_list for word in string.split()] # split each string and flattens
         # Cover all keyword orderings
         for perm in permutations(keywords_list):
             pattern = '.*'.join(perm) # allow any characters between our keywords
@@ -110,7 +111,7 @@ class DocumentationChatbot:
             raise RuntimeError(f"Grep error: {result.stderr.strip()}")
         
         if result.returncode == 1:
-            return "No matches found, you might want to try fewer keywords."
+            return "No matches found, you might want to try fewer strings."
         
         # Process output to make paths relative to docs folder
         output = result.stdout.strip()
@@ -119,11 +120,11 @@ class DocumentationChatbot:
             docs_folder_with_slash = docs_folder.rstrip('/') + '/'
             output = output.replace(docs_folder_with_slash, '')
         
-        result = output if output else "No matches found, you might want to try fewer keywords."
+        result = output if output else "No matches found, you might want to try fewer strings."
         
         # Print debug output if enabled
         if self.config['debug']:
-            debug_md = Markdown(f"**🔍 keywords output:**\n```\n{result}\n```")
+            debug_md = Markdown(f"**🔍 strings search output:**\n```\n{result}\n```")
             self.console.print(debug_md)
         return result
 

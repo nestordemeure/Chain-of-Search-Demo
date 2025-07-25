@@ -73,11 +73,11 @@ Edit [`config.json`](./config.json) to:
 
 The model autonomously searches documentation by chaining three tools:
 
-- `keywords(keywords: List[str])` - grep-based basic keyword search
+- `strings_search(strings: Set[str])` - grep-based basic string search
 - `readline(file: Path, start_line: int, end_line: int)` - read specific file sections
 
 Unlike classic retrieval, it can refine searches and try alternative keywords by itself if initial results are incomplete or not relevant.
-For example, a complex user question like the one below triggers a series of keyword searches and file reads to gather relevant documentation:
+For example, a complex user question like the one below triggers a series of string searches and file reads to gather relevant documentation:
 
 ```
 🤖 Documentation Bot: Hello! I'm here to help you with your NERSC questions. What would you like to know?                                               
@@ -96,6 +96,6 @@ You: How can I install JAX with containers then get into that container with VSc
 
 ## TODO
 
+* add a tree making operation, optional
 * have prompt further emphatize conciseness in answers
-* have keywords be explicitly a list or set instead of a string to discourage writing sentences?
 * restrict number of matches in tool outputs
