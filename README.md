@@ -73,9 +73,9 @@ Edit [`config.json`](./config.json) to:
 
 The model autonomously searches documentation by chaining three tools:
 
-- `keywords()` - basic keyword search
-- `grep()` - grep-based regex pattern matching  
-- `readline()` - read specific file sections
+- `keywords(keywords: List[str])` - grep-based basic keyword search
+- `grep(pattern: str)` - grep-based regex search  
+- `readline(file: Path, start_line: int, end_line: int)` - read specific file sections
 
 Unlike classic retrieval, it can refine searches and try alternative keywords by itself if initial results are incomplete or not relevant.
 
@@ -148,3 +148,4 @@ References:
 ## TODO
 
 * restrict number of matches in tool outputs
+* cut the `grep` tool as it is redundant with keywords?
