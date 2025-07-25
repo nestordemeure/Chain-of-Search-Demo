@@ -144,6 +144,8 @@ References:
  • Conda environments: https://docs.nersc.gov/development/languages/python/nersc-python#option-2-custom-conda-environment     
 ```
 
+So far the system seems to mostly fail on specific queries that are not adressed by our documentation.
+
 ## TODO
 
 * restrict number of matches in tool outputs

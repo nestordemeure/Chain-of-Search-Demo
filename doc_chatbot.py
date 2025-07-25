@@ -55,14 +55,18 @@ class DocumentationChatbot:
 
     def keywords(self, keywords: str) -> str:
         """
-        Search for keywords in documentation files (using grep under the hood).
-        
+        Search for keywords in documentation files using grep.
+
         Args:
-            keywords: One or more keywords to search for (space-separated if multiple).
-                      Matching is order independent, files containing all keywords in any order will be returned.
-        
+            keywords (str): One or more space-separated keywords to search for.
+                            Matching is order-independent—only files containing all keywords, regardless of order, will be returned.
+
         Returns:
-            String containing grep results with file paths and line numbers
+            str: Grep results showing file paths and matching line numbers.
+
+        Warning:
+            For best results, keep the number of keywords small even if that means running subsequent searches. The more keywords you use, the less likely it is that all will appear together in a given piece of text.
+            Also, use shorter, more common substrings (e.g., "install") rather than longer or more specific forms (e.g., "installation") to increase match likelihood.
         """
         # Print tool call start
         nb_lines_outputs = self.config['search']['default_nb_lines_outputs']
