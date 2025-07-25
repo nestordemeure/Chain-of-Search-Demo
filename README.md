@@ -77,75 +77,25 @@ The model autonomously searches documentation by chaining three tools:
 - `readline(file: Path, start_line: int, end_line: int)` - read specific file sections
 
 Unlike classic retrieval, it can refine searches and try alternative keywords by itself if initial results are incomplete or not relevant.
-
-For example, here is an answer to a (terrible) multifaceted, complex question:
+For example, a complex user question like the one below triggers a series of keyword searches and file reads to gather relevant documentation:
 
 ```
 🤖 Documentation Bot: Hello! I'm here to help you with your NERSC questions. What would you like to know?                                               
 
-You: Which filesystem should I use to store my software? and my datas? and my conda env?
+You: How can I install JAX with containers then get into that container with VScode to develop my code there?
 
-🔍 Calling keywords(keywords='filesystem software', nb_lines_outputs=5)
-🔍 Calling keywords(keywords='filesystem data', nb_lines_outputs=5)
-🔍 Calling keywords(keywords='filesystem conda environment', nb_lines_outputs=5)
-📖 Calling readline(file='development/installing-software/index.md', start_line=7, end_line=17)
-📖 Calling readline(file='policies/data-policy/policy.md', start_line=66, end_line=78)
-📖 Calling readline(file='development/installing-software/index.md', start_line=18, end_line=25)
-📖 Calling readline(file='development/installing-software/index.md', start_line=26, end_line=38)
-📖 Calling readline(file='development/installing-software/index.md', start_line=39, end_line=49)
-📖 Calling readline(file='filesystems/global-common.md', start_line=1, end_line=20)
-📖 Calling readline(file='filesystems/global-common.md', start_line=21, end_line=38)
-📖 Calling readline(file='filesystems/global-home.md', start_line=1, end_line=20)
-📖 Calling readline(file='filesystems/global-home.md', start_line=21, end_line=40)
-📖 Calling readline(file='filesystems/community.md', start_line=1, end_line=20)
-📖 Calling readline(file='filesystems/community.md', start_line=21, end_line=40)
-📖 Calling readline(file='filesystems/community.md', start_line=41, end_line=60)
-📖 Calling readline(file='filesystems/community.md', start_line=61, end_line=75)
-🔍 Calling grep(pattern='conda environment filesystem', nb_lines_outputs=5)
-🔍 Calling keywords(keywords='conda environment', nb_lines_outputs=5)
-📖 Calling readline(file='development/languages/python/nersc-python.md', start_line=35, end_line=55)
-📖 Calling readline(file='development/languages/python/nersc-python.md', start_line=56, end_line=75)
-🤖 Documentation Bot:                                                                                                                                   
-
-Here is the information about filesystems to store your software, data, and conda environments at NERSC:                                                
-
- 1 Software:                                                                                                                                            
-    • When installing software on NERSC file systems, it is recommended to use the /global/common/software/<your NERSC project> directory.              
-    • This filesystem is optimized for sharing software and is read-only on the compute nodes.                                                          
-    • You can install software in a prefix such as:                                                                                                     
-                                                                                                                                                        
-       /global/common/software/<your NERSC project>/public/<name>-<version>-<build ID>                                                                  
-                                                                                                                                                        
-    • Make a symbolic link to a standard name for the installation for seamless deployments.                                                            
-    • See more details in the global common file system.                                                                                                
- 2 Data:                                                                                                                                                
-    • For data, NERSC provides the Community File System (CFS) at /global/cfs/cdirs/<your_project_name>.                                                
-    • Community directories are for sharing data among users and collaborators on a project.                                                            
-    • It is advised to store important data at multiple sites for disaster recovery.                                                                    
-    • See more about the Community filesystem here.                                                                                                     
- 3 Conda Environment:                                                                                                                                   
-    • It is recommended to install conda environments to your project directory on /global/common/software if they will be used to run parallel         
-      applications.                                                                                                                                     
-    • Avoid installing conda environments in $HOME because it is not optimized for large-scale I/O and may cause slowdowns.                             
-    • Also avoid using $CFS for many-node compute jobs because it is not meant for heavy I/O at scale.                                                  
-    • First, load the conda module, then create and activate your environment. For example:                                                             
-                                                                                                                                                        
-       module load conda                                                                                                                                
-       conda create --name myenv python=3.11 numpy                                                                                                      
-       conda activate myenv                                                                                                                             
-                                                                                                                                                        
-    • More details on using conda at NERSC can be found here.                                                                                           
-
-References:                                                                                                                                             
-
- • Software installation: https://docs.nersc.gov/development/installing-software/index#nersc-file-systems                                               
- • Global Common filesystem: https://docs.nersc.gov/filesystems/global-common                                                                           
- • Community filesystem: https://docs.nersc.gov/filesystems/community                                                                                   
- • Conda environments: https://docs.nersc.gov/development/languages/python/nersc-python#option-2-custom-conda-environment     
+🔍 Calling keywords(keywords='jax container vscode', nb_lines_outputs=5)
+🔍 Calling keywords(keywords='jax container', nb_lines_outputs=5)
+🔍 Calling keywords(keywords='vscode container develop', nb_lines_outputs=5)
+📖 Calling readline(file='development/languages/python/using-python-perlmutter.md', start_line=250, end_line=310)
+🔍 Calling keywords(keywords='vscode container', nb_lines_outputs=5)
+📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=420, end_line=440)
+📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=400, end_line=420)
+📖 Calling readline(file='development/containers/shifter/faq-troubleshooting.md', start_line=380, end_line=399)   
 ```
-
-So far the system seems to mostly fail on specific queries that are not adressed by our documentation.
 
 ## TODO
 
+* have prompt further emphatize conciseness in answers
+* have keywords be explicitly a list or set instead of a string to discourage writing sentences?
 * restrict number of matches in tool outputs
