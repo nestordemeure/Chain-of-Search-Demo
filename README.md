@@ -1,6 +1,6 @@
 # Chain of Search Demo
 
-A Python chatbot demonstrating tool-based search capabilities.
+A Python chatbot demonstrating tool-based search capabilities (also known as agentic search).
 
 ## Install
 
@@ -95,3 +95,4 @@ You: How can I install JAX with a container then work inside it with VScode?
 ## TODO
 
 * restrict number of matches in tool outputs
+* tweak tool prompt to let the LLM know it can have optional keywords (`?gpu`) as well as alternative ones (`processor|cpu`)

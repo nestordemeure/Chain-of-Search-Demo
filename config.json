@@ -6,7 +6,7 @@
         "welcome_message": "Hello! I'm here to help you with your NERSC questions. What would you like to know?",
         "goodbye_message": "Goodbye! Feel free to ask more questions anytime."
     },
-    "debug": true,
+    "debug": false,
     "docs_folder": "nersc-docs/docs",
     "search": {
         "default_nb_lines_outputs": 5,
